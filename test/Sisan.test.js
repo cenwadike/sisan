@@ -325,7 +325,7 @@ describe("Sisan", function () {
 
       const amount10 = 1n; 
       const recurrent =  false; 
-      const numberOfRecurrentPayment = 0n;
+      const numberOfRecurrentPayment = 1n;
       const recurrentPaymentInterval = 0n;
       const validPaymentToken = "0x0000000000000000000000000000000000000000";
       const payers = [alice]
@@ -422,6 +422,9 @@ describe("Sisan", function () {
 
       const invoice = await sisan.getInvoice(currentInvoiceIdx);
       expect(invoice.recurrent).to.equal(recurrent);
+
+      const invoiceBalance = await sisan.getInvoiceBalance(owner, alice, currentInvoiceIdx);
+      expect(amount10).to.equal(invoiceBalance);
 
       const invoice1 = await sisan.getInvoiceByCreatorAndIdx(owner, currentInvoiceIdx);
       expect(invoice.recurrent).to.equal(invoice1.recurrent);

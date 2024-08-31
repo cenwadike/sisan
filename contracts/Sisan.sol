@@ -137,7 +137,7 @@ contract Sisan is Ownable, ReentrancyGuard {
         InvoicesByPayerAddressAndInvoiceIdx[msg.sender][invoiceIdx] = invoice;
 
         // update balance
-        balances[invoice.creator][msg.sender][invoice.invoiceIdx] = invoice.amount;
+        balances[invoice.creator][msg.sender][invoice.invoiceIdx] = invoice.amount * uint(invoice.numberOfRecurrentPayment);
 
         // verify attached ether
         if(invoice.validPaymentToken == ETH_TOKEN_PLACEHOLDER) {
@@ -275,7 +275,7 @@ contract Sisan is Ownable, ReentrancyGuard {
         // transfer amount * number of payment not withdrawn
         if (invoice.numberOfRecurrentPayment > 0) {
             uint256 lasWithdrawalPeriod = block.number - invoice.lastWithdrawal;
-            uint256 missedPaymentWithdrawal = lasWithdrawalPeriod/invoice.criticalPeriod;
+            uint256 missedPaymentWithdrawal = lasWithdrawalPeriod/invoice.recurrentPaymentInterval;
 
             uint256 amountToTransfer = missedPaymentWithdrawal * invoice.amount;
             balances[invoice.creator][payer][invoice.invoiceIdx] -= amountToTransfer;
@@ -308,6 +308,14 @@ contract Sisan is Ownable, ReentrancyGuard {
         uint256 invoiceIdx
     ) view external returns(Invoice memory invoice) {
         return InvoicesByIdx[invoiceIdx];
+    }
+
+    function getInvoiceBalance(
+        address creator,
+        address payer,
+        uint256 invoiceIdx
+    ) view external returns(uint balance) {
+        return balances[creator][payer][invoiceIdx];
     }
 
     function getInvoiceByCreatorAndIdx(
