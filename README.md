@@ -81,6 +81,22 @@ pub trait Contract {
 
 ## Develop
 
+### Edit `.env` file
+
+- Copy `.env.copy` to `.env`
+
+```bash
+cp .env.copy .env
+```
+
+- Provide fhenix private key
+
+```bash
+PRIVATE_KEY=<fhenix-private-key>
+```
+
+- Provide owner address in `ignition/modules/Sisan.js`
+
 ### Build
 
 ```bash
@@ -95,4 +111,28 @@ npx hardhat compile
 
 ```bash
 npx hardhat test
+```
+
+### Deploy
+
+#### Deploy on hardhat
+
+- Open another terminal and run
+
+```bash
+npx hardhat node
+```
+
+- Run the command below in a separate terminal
+
+```bash
+ npx hardhat ignition deploy ./ignition/modules/Sisan.js --network hardhat 
+```
+
+#### Deploy on fhenix
+
+- Run the command
+
+```bash
+npx hardhat ignition deploy ./ignition/modules/Sisan.js --network fhenixHeliumTestnet
 ```
