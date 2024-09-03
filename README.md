@@ -155,7 +155,7 @@ npx hardhat test --network localfhenix
 
 ### Deploy
 
-#### Deploy on hardhat
+#### Deploy on local fhenix
 
 - Open another terminal and run
 
@@ -173,7 +173,7 @@ pnpm hardhat localfhenix:start
  npx hardhat ignition deploy ./ignition/modules/Sisan.js --network localfhenix 
 ```
 
-#### Deploy on fhenix
+#### Deploy on fhenix testnet
 
 - Run the command
 
