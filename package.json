@@ -22,5 +22,10 @@
     "hardhat-gas-reporter": "^2.2.1",
     "solidity-coverage": "^0.8.12",
     "typechain": "^8.3.2"
+  },
+  "dependencies": {
+    "@fhenixprotocol/contracts": "^0.2.1",
+    "fhenix-hardhat-docker": "^0.2.2",
+    "fhenix-hardhat-plugin": "^0.2.1"
   }
 }

@@ -1,19 +1,23 @@
 require("@nomicfoundation/hardhat-toolbox");
+require("fhenix-hardhat-plugin");
+require("fhenix-hardhat-docker");
 
 const fs = require('fs');
 const [_, privateKey] = fs.readFileSync(".env").toString().trim().split("=");
 
-console.log(privateKey)
-
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
-  defaultNetwork: "hardhat",
+  defaultNetwork: "localfhenix",
   networks: {
     hardhat: {
       chainId: 1337
     },
+    localFhenix: {
+      url: `127.0.0.1:42069`,
+    },
     fhenixHeliumTestnet: {
       url: `https://api.helium.fhenix.zone`,
+      chainId: 8008135,
       accounts: [privateKey]
     },
   },

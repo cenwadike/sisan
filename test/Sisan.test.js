@@ -1,40 +1,45 @@
 const {
-  loadFixture,
   time
 } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
 
 const { anyValue } = require("@nomicfoundation/hardhat-chai-matchers/withArgs");
 const { expect } = require("chai");
-const { ethers } = require("hardhat");
+const { ethers, fhenixjs } = require("hardhat");
+
+async function deploySisanFixture() {
+  const [owner, alice] = await ethers.getSigners();
+
+  await fhenixjs.getFunds(owner.address);
+  await fhenixjs.getFunds(alice.address)
+
+  const Sisan = await ethers.getContractFactory("Sisan");
+  const sisan = await Sisan.deploy(owner);
+  const sisanContractAddress = sisan.getAddress();
+
+  return { sisan, owner, sisanContractAddress };
+}
+
+async function deployERC20Fixture() {
+  const [owner, alice] = await ethers.getSigners();
+
+  const tokenName = "Token";
+  const tokenSymbol = "TKN";
+
+  await fhenixjs.getFunds(owner.address);
+  await fhenixjs.getFunds(alice.address);
+
+  const Token = await ethers.getContractFactory("Token");
+  const token = await Token.deploy(owner, tokenName, tokenSymbol);
+  const tokenContractAddress = token.getAddress();
+
+  return { token, owner, tokenContractAddress, tokenName, tokenSymbol };
+}
 
 describe("Sisan", function () {
-  async function deploySisanFixture() {
-    const [owner] = await ethers.getSigners();
-
-    const Sisan = await ethers.getContractFactory("Sisan");
-    const sisan = await Sisan.deploy(owner);
-    const sisanContractAddress = sisan.getAddress();
-
-    return { sisan, owner, sisanContractAddress };
-  }
-
-  async function deployERC20Fixture() {
-    const [owner] = await ethers.getSigners();
-
-    const tokenName = "Token";
-    const tokenSymbol = "TKN";
-
-    const Token = await ethers.getContractFactory("Token");
-    const token = await Token.deploy(owner, tokenName, tokenSymbol);
-    const tokenContractAddress = token.getAddress();
-
-    return { token, owner, tokenContractAddress, tokenName, tokenSymbol };
-  }
-
   describe("Deployment", function () {
     describe("ERC20 Token deployment", function () {
       it("Should deploy ERC20 token", async function () {
-        const { token, owner, tokenName, tokenSymbol } = await loadFixture(deployERC20Fixture);
+        const { token, owner, tokenName, tokenSymbol } = await deployERC20Fixture();
 
         expect(await token.owner()).to.equal(owner);
         expect(await token.name()).to.equal(tokenName);
@@ -44,7 +49,7 @@ describe("Sisan", function () {
 
     describe("Sisan deployment", function () {
       it("Should set the right owner", async function () {
-        const { sisan, owner } = await loadFixture(deploySisanFixture);
+        const { sisan, owner } = await deploySisanFixture();
 
         expect(await sisan.owner()).to.equal(owner)
       })
@@ -54,10 +59,10 @@ describe("Sisan", function () {
   describe("Create Invoice", function () {
     it("Should create a one time payment invoice", async function () {
       const [_, alice] = await ethers.getSigners();
-      const {tokenContractAddress} = await loadFixture(deployERC20Fixture);
-      const { sisan, owner } = await loadFixture(deploySisanFixture);
+      const {tokenContractAddress} = await deployERC20Fixture();
+      const { sisan, owner } = await deploySisanFixture();
 
-      const amount0 = 0n; 
+      const amount0 = 0; 
       const recurrent =  false; 
       const numberOfRecurrentPayment = 0n;
       const recurrentPaymentInterval = 0n;
@@ -82,10 +87,10 @@ describe("Sisan", function () {
 
     it("Should create a one to one recurrent payment invoice", async function () {
       const [_, alice] = await ethers.getSigners();
-      const {tokenContractAddress} = await loadFixture(deployERC20Fixture);
-      const { sisan, owner } = await loadFixture(deploySisanFixture);
+      const {tokenContractAddress} = await deployERC20Fixture();
+      const { sisan, owner } = await deploySisanFixture();
 
-      const amount0 = 0n; 
+      const amount0 = 0; 
       const recurrent =  true; 
       const numberOfRecurrentPayment = 3n;
       const recurrentPaymentInterval = 7n;
@@ -110,10 +115,10 @@ describe("Sisan", function () {
 
     it("Should create a one to many single payment invoice", async function () {
       const [_, alice, bob, charlie] = await ethers.getSigners();
-      const {tokenContractAddress} = await loadFixture(deployERC20Fixture);
-      const { sisan, owner } = await loadFixture(deploySisanFixture);
+      const {tokenContractAddress} = await deployERC20Fixture();
+      const { sisan, owner } = await deploySisanFixture();
 
-      const amount0 = 0n; 
+      const amount0 = 0; 
       const recurrent =  false; 
       const numberOfRecurrentPayment = 0n;
       const recurrentPaymentInterval = 0n;
@@ -138,10 +143,10 @@ describe("Sisan", function () {
 
     it("Should create a one to many recurrent payment invoice", async function () {
       const [_, alice, bob, charlie] = await ethers.getSigners();
-      const {tokenContractAddress} = await loadFixture(deployERC20Fixture);
-      const { sisan, owner } = await loadFixture(deploySisanFixture);
+      const {tokenContractAddress} = await deployERC20Fixture();
+      const { sisan, owner } = await deploySisanFixture();
 
-      const amount0 = 0n; 
+      const amount0 = 0; 
       const recurrent =  true; 
       const numberOfRecurrentPayment = 2n;
       const recurrentPaymentInterval = 7n;
@@ -168,7 +173,7 @@ describe("Sisan", function () {
   describe("Create and Accept Invoice", function () {
     it("Should accept a one to one single eth payment invoice", async function () {
       const [_, alice] = await ethers.getSigners();
-      const { sisan, owner } = await loadFixture(deploySisanFixture);
+      const { sisan, owner } = await deploySisanFixture();
 
       const amount1 = 1n; 
       const recurrent =  false; 
@@ -197,8 +202,8 @@ describe("Sisan", function () {
 
     it("Should accept a one to one single erc20 payment invoice", async function () {
       const [_, alice] = await ethers.getSigners();
-      const {tokenContractAddress, token} = await loadFixture(deployERC20Fixture);
-      const { sisan, owner, sisanContractAddress } = await loadFixture(deploySisanFixture);
+      const {tokenContractAddress, token} = await deployERC20Fixture();
+      const { sisan, owner, sisanContractAddress } = await deploySisanFixture();
 
       const amount1 = 1n; 
       const recurrent =  false; 
@@ -236,7 +241,7 @@ describe("Sisan", function () {
   describe("Create, Accept, and Cancel Invoice", function () {
     it("Should cancel a one to one single eth payment invoice", async function () {
       const [_, alice] = await ethers.getSigners();
-      const { sisan, owner } = await loadFixture(deploySisanFixture);
+      const { sisan, owner } = await deploySisanFixture();
 
       const amount1 = 1n; 
       const recurrent =  false; 
@@ -269,8 +274,8 @@ describe("Sisan", function () {
 
     it("Should cancel a one to one single erc20 payment invoice", async function () {
       const [_, alice] = await ethers.getSigners();
-      const {tokenContractAddress, token} = await loadFixture(deployERC20Fixture);
-      const { sisan, owner, sisanContractAddress } = await loadFixture(deploySisanFixture);
+      const {tokenContractAddress, token} = await deployERC20Fixture();
+      const { sisan, owner, sisanContractAddress } = await deploySisanFixture();
 
       const amount1 = 1n; 
       const recurrent =  false; 
@@ -321,9 +326,9 @@ describe("Sisan", function () {
   describe("Create, Accept Invoice and withdraw payment", function () {
     it("Should withdraw payment of a one to one single eth payment invoice", async function () {
       const [_, alice] = await ethers.getSigners();
-      const { sisan, owner } = await loadFixture(deploySisanFixture);
+      const { sisan, owner } = await deploySisanFixture();
 
-      const amount10 = 1n; 
+      const amount10 = 1; 
       const recurrent =  false; 
       const numberOfRecurrentPayment = 1n;
       const recurrentPaymentInterval = 0n;
@@ -351,8 +356,8 @@ describe("Sisan", function () {
 
     it("Should withdraw a one to one single erc20 payment invoice", async function () {
       const [_, alice] = await ethers.getSigners();
-      const {tokenContractAddress, token} = await loadFixture(deployERC20Fixture);
-      const { sisan, owner, sisanContractAddress } = await loadFixture(deploySisanFixture);
+      const {tokenContractAddress, token} = await deployERC20Fixture();
+      const { sisan, owner, sisanContractAddress } = await deploySisanFixture();
 
       const amount1 = 1n; 
       const recurrent =  false; 
@@ -391,14 +396,14 @@ describe("Sisan", function () {
 
       expect(amount1).to.equal(await token.balanceOf(owner));
     });
-  });
+  })
 
   describe("View methods", function () {
     it("try out view methods", async function () {
       const [_, alice] = await ethers.getSigners();
-      const { sisan, owner } = await loadFixture(deploySisanFixture);
+      const { sisan, owner } = await deploySisanFixture();
 
-      const amount10 = 1n; 
+      const amount10 = 1; 
       const recurrent =  true; 
       const numberOfRecurrentPayment = 1n;
       const recurrentPaymentInterval = 1n;

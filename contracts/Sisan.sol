@@ -1,37 +1,38 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@fhenixprotocol/contracts/FHE.sol";
 
 contract Sisan is Ownable, ReentrancyGuard {
-    uint256 public currentInvoiceIdx;
+    uint128 public currentInvoiceIdx;
 
     // default critical period is 7 days.
     // using DAILY_AVERAGE_BLOCK to be 7152 (https://ycharts.com/indicators/ethereum_blocks_per_day)
     // default critical period => 7152*7
-    uint256 public defaultCriticalPeriod;
+    uint128 public defaultCriticalPeriod;
 
-    uint256 private DAILY_AVERAGE_BLOCK = 7152;
+    uint128 private DAILY_AVERAGE_BLOCK = 7152;
     address private ETH_TOKEN_PLACEHOLDER = 0x0000000000000000000000000000000000000000;
 
     struct Invoice {
-        uint256 invoiceIdx;
-        uint256 amount;
-        uint256 criticalPeriod;
+        uint128 invoiceIdx;
+        uint128 amount;
+        uint128 criticalPeriod;
         address creator;
         address[] payers;
         bool recurrent;
-        int256 numberOfRecurrentPayment;
-        uint256 recurrentPaymentInterval;
+        int128 numberOfRecurrentPayment;
+        uint128 recurrentPaymentInterval;
         address validPaymentToken;
-        uint256 lastWithdrawal;
+        uint128 lastWithdrawal;
         InvoiceStatus status;
     }
 
     // map(invoiceCreator, invoicePayer, invoiceIdx) -> balance
-    mapping (address => mapping(address => mapping(uint => uint))) balances;
+    mapping (address => mapping(address => mapping(uint => euint128))) balances;
 
     enum InvoiceStatus {
         Created,
@@ -41,20 +42,20 @@ contract Sisan is Ownable, ReentrancyGuard {
     }
 
     // maps creator address and invoice Idx to an invoice
-    mapping (address => mapping (uint256 => Invoice) ) InvoicesByCreatorAddressAndInvoiceIdx;
+    mapping (address => mapping (uint128 => Invoice) ) InvoicesByCreatorAddressAndInvoiceIdx;
 
     // maps creator address and invoice Idx to an invoice
-    mapping (address => mapping (uint256 => Invoice) ) InvoicesByPayerAddressAndInvoiceIdx;
+    mapping (address => mapping (uint128 => Invoice) ) InvoicesByPayerAddressAndInvoiceIdx;
 
     // maps invoice Idx to an invoice
-    mapping (uint256 => Invoice) InvoicesByIdx;
+    mapping (uint128 => Invoice) InvoicesByIdx;
 
     event Initialized(address owner);
-    event InvoiceCreated(uint256 invoiceIdx, address creator, uint256 amount, address validPaymentToken);
-    event InvoiceAccepted(uint256 invoiceIdx, address payer, uint256 amount, address validPaymentToken);
-    event PaymentCanceled(uint256 invoiceIdx, address creator, address payer);
-    event PaymentWithdrawn(uint256 invoiceIdx);
-    event InvoiceCompleted(uint256 invoiceIdx);
+    event InvoiceCreated(uint128 invoiceIdx, address creator, uint128 amount, address validPaymentToken);
+    event InvoiceAccepted(uint128 invoiceIdx, address payer, uint128 amount, address validPaymentToken);
+    event PaymentCanceled(uint128 invoiceIdx, address creator, address payer);
+    event PaymentWithdrawn(uint128 invoiceIdx);
+    event InvoiceCompleted(uint128 invoiceIdx);
     event EthRecieved(uint256 amount);
 
     constructor(address initialOwner) Ownable(initialOwner) {
@@ -69,14 +70,14 @@ contract Sisan is Ownable, ReentrancyGuard {
     }
 
     function createInvoice(
-        uint256 _amount, 
+        uint128 _amount, 
         bool _recurrent, 
-        uint256 _numberOfRecurrentPayment, 
-        uint256 _recurrentPaymentInterval,
-        uint256 _criticalPeriod,
+        uint128 _numberOfRecurrentPayment, 
+        uint128 _recurrentPaymentInterval,
+        uint128 _criticalPeriod,
         address _validPaymentToken, 
         address[] memory _payers
-    ) external returns (uint256 invoiceIdx) {
+    ) external returns (uint128 invoiceIdx) {
         uint256 len = _payers.length;
         for(uint256 i = 0; i < len; i++ ){
             require(_payers[i] != msg.sender, "Sisan::acceptInvoice::Creator can not be payer");
@@ -89,14 +90,14 @@ contract Sisan is Ownable, ReentrancyGuard {
         Invoice memory invoice = Invoice({
             invoiceIdx: currentInvoiceIdx,
             amount: _amount,
-            criticalPeriod: block.number + _criticalPeriod,
+            criticalPeriod: uint128(block.number) + _criticalPeriod,
             creator: msg.sender,
             payers: _payers,
             recurrent: _recurrent,
-            numberOfRecurrentPayment: int(_numberOfRecurrentPayment),
+            numberOfRecurrentPayment: int128(_numberOfRecurrentPayment),
             recurrentPaymentInterval: _recurrentPaymentInterval,
             validPaymentToken: _validPaymentToken,
-            lastWithdrawal: block.number,
+            lastWithdrawal: uint128(block.number),
             status: InvoiceStatus.Created
         });
 
@@ -110,7 +111,7 @@ contract Sisan is Ownable, ReentrancyGuard {
     }
 
     function acceptInvoice(
-        uint256 invoiceIdx,
+        uint128 invoiceIdx,
         bool recurrent
     ) payable external nonReentrant {
         // get invoice
@@ -137,12 +138,14 @@ contract Sisan is Ownable, ReentrancyGuard {
         InvoicesByPayerAddressAndInvoiceIdx[msg.sender][invoiceIdx] = invoice;
 
         // update balance
-        balances[invoice.creator][msg.sender][invoice.invoiceIdx] = invoice.amount * uint(invoice.numberOfRecurrentPayment);
+        uint128 _tempProduct = uint128(invoice.amount) * uint128(invoice.numberOfRecurrentPayment);
+        euint128 _newBalance = FHE.asEuint128(uint128(_tempProduct));
+        balances[invoice.creator][msg.sender][invoice.invoiceIdx] = _newBalance;
 
         // verify attached ether
         if(invoice.validPaymentToken == ETH_TOKEN_PLACEHOLDER) {
             if(invoice.recurrent) {
-                uint256 attachedAmmount = msg.value * uint(invoice.numberOfRecurrentPayment);
+                uint128 attachedAmmount = uint128(msg.value) * uint128(invoice.numberOfRecurrentPayment);
                 require(attachedAmmount == msg.value, "Sisan::acceptInvoice::Insufficient ether attached");
             } else {
                 require(invoice.amount == msg.value, "Sisan::acceptInvoice::Insufficient ether attached");         
@@ -155,7 +158,7 @@ contract Sisan is Ownable, ReentrancyGuard {
             uint256 allowance = token.allowance(msg.sender, address(this));
 
             if(invoice.recurrent) {
-                uint256 requiredAmmount = invoice.amount * uint(invoice.numberOfRecurrentPayment);
+                uint128 requiredAmmount = invoice.amount * uint128(invoice.numberOfRecurrentPayment);
                 require(requiredAmmount == allowance, "Sisan::acceptInvoice::Insufficient allowance");
                 token.transferFrom(msg.sender, address(this), requiredAmmount);
             } else {
@@ -168,7 +171,7 @@ contract Sisan is Ownable, ReentrancyGuard {
     }
 
     function cancelPayment(
-        uint256 invoiceIdx
+        uint128 invoiceIdx
     ) payable external nonReentrant {
         Invoice memory invoice = InvoicesByIdx[invoiceIdx]; 
 
@@ -176,7 +179,7 @@ contract Sisan is Ownable, ReentrancyGuard {
         uint256 len = invoice.payers.length;
         bool isValidPayer = false;
 
-        for(uint256 i = 0; i < len; i++){
+        for(uint128 i = 0; i < len; i++){
             if(invoice.payers[i] == msg.sender) {
                 isValidPayer = true;
             }
@@ -186,7 +189,7 @@ contract Sisan is Ownable, ReentrancyGuard {
 
         // if one to many pop out canceled payer from array
         if(len > 1) {
-            for(uint256 i = 0; i < len; i++) {
+            for(uint128 i = 0; i < len; i++) {
                 if(invoice.payers[i] == msg.sender) {
                     delete invoice.payers[i];
                 } 
@@ -194,10 +197,16 @@ contract Sisan is Ownable, ReentrancyGuard {
         }
 
         // update state to Created if one to one invoice
-        if(invoice.payers[len-1] == address(0)) {
+        if(invoice.payers[0] == address(0)) {
             invoice.status = InvoiceStatus.Cancelled;
         }
         InvoicesByIdx[invoiceIdx] = invoice; 
+
+        // update balance 
+        balances[invoice.creator][msg.sender][invoice.invoiceIdx] = FHE.sub(
+                balances[invoice.creator][msg.sender][invoice.invoiceIdx], 
+                FHE.asEuint128(invoice.amount * uint128(invoice.numberOfRecurrentPayment))
+        );
 
         if(block.number > invoice.criticalPeriod) {
             // transfer 50% of payment to payer and 50% to payee
@@ -235,12 +244,13 @@ contract Sisan is Ownable, ReentrancyGuard {
             }
         } 
 
+
         // emit event
         emit PaymentCanceled(invoice.invoiceIdx, invoice.creator, msg.sender);
     }
 
     function withdrawPayment(
-        uint256 invoiceIdx,
+        uint128 invoiceIdx,
         address payer
     ) external nonReentrant {
         Invoice memory invoice = InvoicesByIdx[invoiceIdx]; 
@@ -256,8 +266,9 @@ contract Sisan is Ownable, ReentrancyGuard {
         require(invoice.status == InvoiceStatus.Accepted, 
             "Sisan::withdrawPayment::Invoice not accepted"
         );
-
-        require(balances[invoice.creator][payer][invoice.invoiceIdx] > 0,
+        
+        uint128 _balanceTemp = FHE.decrypt(balances[invoice.creator][payer][invoice.invoiceIdx]);
+        require(_balanceTemp > 0,
             "Sisan::withdrawPayment::Invoice payment complete"
         );
 
@@ -274,11 +285,12 @@ contract Sisan is Ownable, ReentrancyGuard {
         // if payment is recurrent, check how many payment is left to be withdrawn
         // transfer amount * number of payment not withdrawn
         if (invoice.numberOfRecurrentPayment > 0) {
-            uint256 lasWithdrawalPeriod = block.number - invoice.lastWithdrawal;
-            uint256 missedPaymentWithdrawal = lasWithdrawalPeriod/invoice.recurrentPaymentInterval;
+            uint128 lasWithdrawalPeriod = uint128(block.number) - invoice.lastWithdrawal;
+            uint128 missedPaymentWithdrawal = lasWithdrawalPeriod/invoice.recurrentPaymentInterval;
 
-            uint256 amountToTransfer = missedPaymentWithdrawal * invoice.amount;
-            balances[invoice.creator][payer][invoice.invoiceIdx] -= amountToTransfer;
+            uint128 amountToTransfer = missedPaymentWithdrawal * invoice.amount;
+            euint128 oldBalance = balances[invoice.creator][payer][invoice.invoiceIdx];
+            balances[invoice.creator][payer][invoice.invoiceIdx] = FHE.sub(oldBalance, FHE.asEuint128(amountToTransfer));
 
             if(invoice.validPaymentToken == ETH_TOKEN_PLACEHOLDER) {
                 payable(msg.sender).transfer(amountToTransfer);
@@ -295,7 +307,8 @@ contract Sisan is Ownable, ReentrancyGuard {
                 token.transfer(msg.sender, invoice.amount);
             }            
 
-            balances[invoice.creator][payer][invoice.invoiceIdx] -= invoice.amount;
+            euint128 oldBalance = balances[invoice.creator][payer][invoice.invoiceIdx];
+            balances[invoice.creator][payer][invoice.invoiceIdx] = FHE.sub(oldBalance, FHE.asEuint128(invoice.amount));
 
             invoice.status = InvoiceStatus.Completed;
             emit InvoiceCompleted(invoice.invoiceIdx);
@@ -305,7 +318,7 @@ contract Sisan is Ownable, ReentrancyGuard {
     }
 
     function getInvoice(
-        uint256 invoiceIdx
+        uint128 invoiceIdx
     ) view external returns(Invoice memory invoice) {
         return InvoicesByIdx[invoiceIdx];
     }
@@ -313,21 +326,21 @@ contract Sisan is Ownable, ReentrancyGuard {
     function getInvoiceBalance(
         address creator,
         address payer,
-        uint256 invoiceIdx
+        uint128 invoiceIdx
     ) view external returns(uint balance) {
-        return balances[creator][payer][invoiceIdx];
+        return FHE.decrypt(balances[creator][payer][invoiceIdx]);
     }
 
     function getInvoiceByCreatorAndIdx(
         address creator,
-        uint256 invoiceIdx
+        uint128 invoiceIdx
     ) view external returns(Invoice memory invoice) {
         return InvoicesByCreatorAddressAndInvoiceIdx[creator][invoiceIdx];
     }
 
     function getInvoiceByPayerAndIdx(
         address payer,
-        uint256 invoiceIdx
+        uint128 invoiceIdx
     ) view external returns(Invoice memory invoice) {
         return InvoicesByPayerAddressAndInvoiceIdx[payer][invoiceIdx];
     }

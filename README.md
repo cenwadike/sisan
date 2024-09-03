@@ -44,37 +44,73 @@ system → ***If:*** `payment period` is reached, `transfer` the correct asset t
 
 ```rust
     struct Invoice {
-        uint256 invoiceIdx;
-        uint256 amount;
-        uint256 criticalPeriod;
+        uint128 invoiceIdx;
+        uint128 amount;
+        uint128 criticalPeriod;
         address creator;
         address[] payers;
         bool recurrent;
-        int256 numberOfRecurrentPayment;
-        uint256 recurrentPaymentInterval;
+        int128 numberOfRecurrentPayment;
+        uint128 recurrentPaymentInterval;
         address validPaymentToken;
-        uint256 lastWithdrawal;
+        uint128 lastWithdrawal;
         InvoiceStatus status;
     }
 ```
 
 #### Invoice balances 
 ```rust
-    // map(invoiceCreator, invoicePayer, invoiceIdx) -> balance
-    mapping (address => mapping(address => mapping(uint => uint))) balances;
+    // map(invoiceCreator, invoicePayer, invoiceIdx) -> encrypted-balance
+    mapping (address => mapping(address => mapping(uint => euint128))) balances;
 ```
 
 ### Interface
 
-```rust
-pub trait Contract {
- pub fn submit_invoice(param: Invoice) -> invoice_id;
- pub fn accept_invoice(?recurrent: bool, ?interval: u128);
- pub fn cancel_payment(invoice_id: u64);
- pub fn withdraw_payment(invoice_id: u64);
- pub fn get_employee_invoice(employee_pk: pub_key) -> Vec<Invoice>;
- pub fn get_employer_invoice(employer_pk: pub_key) -> Vec<Invoice>;
- ...
+```js
+Interface Sisan {
+    function createInvoice(
+        uint128 _amount, 
+        bool _recurrent, 
+        uint128 _numberOfRecurrentPayment, 
+        uint128 _recurrentPaymentInterval,
+        uint128 _criticalPeriod,
+        address _validPaymentToken, 
+        address[] memory _payers
+    ) external returns (uint128 invoiceIdx);
+
+    function acceptInvoice(
+        uint128 invoiceIdx,
+        bool recurrent
+    ) payable external;
+
+    function cancelPayment(
+        uint128 invoiceIdx
+    ) payable external;
+
+    function withdrawPayment(
+        uint128 invoiceIdx,
+        address payer
+    ) external;
+
+    function getInvoice(
+        uint128 invoiceIdx
+    ) view external returns(Invoice memory invoice);
+
+    function getInvoiceBalance(
+        address creator,
+        address payer,
+        uint128 invoiceIdx
+    ) view external returns(uint balance);
+
+    function getInvoiceByCreatorAndIdx(
+        address creator,
+        uint128 invoiceIdx
+    ) view external returns(Invoice memory invoice);
+
+    function getInvoiceByPayerAndIdx(
+        address payer,
+        uint128 invoiceIdx
+    ) view external returns(Invoice memory invoice)
 }
 ```
 
