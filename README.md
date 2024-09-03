@@ -160,14 +160,10 @@ npx hardhat test --network localfhenix
 - Open another terminal and run
 
 ```bash
-npx hardhat node
+pnpm hardhat localfhenix:start
 ```
 
 - Run the command below in a separate terminal
-
-```bash
-pnpm hardhat localfhenix:start
-```
 
 ```bash
  npx hardhat ignition deploy ./ignition/modules/Sisan.js --network localfhenix 
