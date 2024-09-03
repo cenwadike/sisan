@@ -146,7 +146,11 @@ npx hardhat compile
 ### Test
 
 ```bash
-npx hardhat test
+pnpm hardhat localfhenix:start
+```
+
+```bash
+npx hardhat test --network localfhenix
 ```
 
 ### Deploy
@@ -162,7 +166,11 @@ npx hardhat node
 - Run the command below in a separate terminal
 
 ```bash
- npx hardhat ignition deploy ./ignition/modules/Sisan.js --network hardhat 
+pnpm hardhat localfhenix:start
+```
+
+```bash
+ npx hardhat ignition deploy ./ignition/modules/Sisan.js --network localfhenix 
 ```
 
 #### Deploy on fhenix
