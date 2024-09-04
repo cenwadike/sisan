@@ -14,6 +14,10 @@ module.exports = {
     },
     localFhenix: {
       url: `127.0.0.1:42069`,
+      ignition: {
+        maxFeePerGasLimit: 1_125_899_906_842_624,
+        maxPriorityFeePerGas: 2_000_000_000n, // 2 gwei
+      },
     },
     fhenixHeliumTestnet: {
       url: `https://api.helium.fhenix.zone`,
@@ -21,5 +25,13 @@ module.exports = {
       accounts: [privateKey]
     },
   },
-  solidity: "0.8.24",
+  solidity: {
+    version: "0.8.24",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200,
+      },
+    },
+  }
 };

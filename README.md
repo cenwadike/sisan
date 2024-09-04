@@ -176,3 +176,7 @@ pnpm hardhat localfhenix:start
 ```bash
 npx hardhat ignition deploy ./ignition/modules/Sisan.js --network fhenixHeliumTestnet
 ```
+
+### Contract address
+
+- 0xf38f8c730FE7f6e272eBAcd1AE6fF40361c6E7ED (fhenixHeliumTestnet)
