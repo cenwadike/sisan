@@ -289,7 +289,9 @@ contract Sisan is ReentrancyGuard {
 
             uint128 amountToTransfer = missedPaymentWithdrawal * invoice.amount;
             euint128 oldBalance = balances[invoice.creator][payer][invoice.invoiceIdx];
+
             balances[invoice.creator][payer][invoice.invoiceIdx] = FHE.sub(oldBalance, FHE.asEuint128(amountToTransfer));
+            invoice.lastWithdrawal = uint128(block.number);
 
             if(invoice.validPaymentToken == ETH_TOKEN_PLACEHOLDER) {
                 payable(msg.sender).transfer(amountToTransfer);
@@ -299,15 +301,15 @@ contract Sisan is ReentrancyGuard {
             }
         }
         if(invoice.numberOfRecurrentPayment <= 0) {
+            euint128 oldBalance = balances[invoice.creator][payer][invoice.invoiceIdx];
+            balances[invoice.creator][payer][invoice.invoiceIdx] = FHE.sub(oldBalance, FHE.asEuint128(invoice.amount));
+
             if(invoice.validPaymentToken == ETH_TOKEN_PLACEHOLDER) {
                 payable(msg.sender).transfer(invoice.amount);
             } else {
                 IERC20 token = IERC20(invoice.validPaymentToken);
                 token.transfer(msg.sender, invoice.amount);
             }            
-
-            euint128 oldBalance = balances[invoice.creator][payer][invoice.invoiceIdx];
-            balances[invoice.creator][payer][invoice.invoiceIdx] = FHE.sub(oldBalance, FHE.asEuint128(invoice.amount));
 
             invoice.status = InvoiceStatus.Completed;
             emit InvoiceCompleted(invoice.invoiceIdx);
