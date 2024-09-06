@@ -59,9 +59,31 @@ system → ***If:*** `payment period` is reached, `transfer` the correct asset t
 ```
 
 #### Invoice balances 
+
 ```rust
     // map(invoiceCreator, invoicePayer, invoiceIdx) -> encrypted-balance
     mapping (address => mapping(address => mapping(uint => euint128))) balances;
+```
+
+#### Invoice by creator and index
+
+```rust
+    // maps creator address and invoice Idx to an invoice
+    mapping (address => mapping (uint128 => Invoice) ) InvoicesByCreatorAddressAndInvoiceIdx;
+```
+
+#### Invoice by payer and index
+
+```rust
+    // maps payer address and invoice Idx to an invoice
+    mapping (address => mapping (uint128 => Invoice) ) InvoicesByPayerAddressAndInvoiceIdx;
+```
+
+#### Invoice by index
+
+```rust
+    // maps invoice Idx to an invoice
+    mapping (uint128 => Invoice) InvoicesByIdx;
 ```
 
 ### Interface
@@ -131,8 +153,6 @@ cp .env.copy .env
 PRIVATE_KEY=<fhenix-private-key>
 ```
 
-- Provide owner address in `ignition/modules/Sisan.js`
-
 ### Build
 
 ```bash
@@ -152,6 +172,12 @@ pnpm hardhat localfhenix:start
 ```bash
 npx hardhat test --network localfhenix
 ```
+
+#### Note
+
+##### Withdrawal test
+
+Because localfhenix does not support chain fast forwarding, comment line `261` to `263` of **Sisan.sol**, and uncomment withdrawal tests.
 
 ### Deploy
 
@@ -179,4 +205,4 @@ npx hardhat ignition deploy ./ignition/modules/Sisan.js --network fhenixHeliumTe
 
 ### Contract address
 
-- 0xf38f8c730FE7f6e272eBAcd1AE6fF40361c6E7ED (fhenixHeliumTestnet)
+- 0x203cdb9736B57B080D68cb88739C155bC95CbE4f (fhenixHeliumTestnet)

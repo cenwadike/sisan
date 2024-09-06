@@ -1,8 +1,8 @@
 const {
-  time
+  time,
+  mine
 } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
 
-const { anyValue } = require("@nomicfoundation/hardhat-chai-matchers/withArgs");
 const { expect } = require("chai");
 const { ethers, fhenixjs } = require("hardhat");
 
@@ -13,7 +13,7 @@ async function deploySisanFixture() {
   await fhenixjs.getFunds(alice.address)
 
   const Sisan = await ethers.getContractFactory("Sisan");
-  const sisan = await Sisan.deploy(owner);
+  const sisan = await Sisan.deploy();
   const sisanContractAddress = sisan.getAddress();
 
   return { sisan, owner, sisanContractAddress };
@@ -48,10 +48,8 @@ describe("Sisan", function () {
     })
 
     describe("Sisan deployment", function () {
-      it("Should set the right owner", async function () {
+      it("Should deploy sisan", async function () {
         const { sisan, owner } = await deploySisanFixture();
-
-        expect(await sisan.owner()).to.equal(owner)
       })
     })
   })
@@ -323,80 +321,80 @@ describe("Sisan", function () {
     });
   });
 
-  describe("Create, Accept Invoice and withdraw payment", function () {
-    it("Should withdraw payment of a one to one single eth payment invoice", async function () {
-      const [_, alice] = await ethers.getSigners();
-      const { sisan, owner } = await deploySisanFixture();
+  // describe("Create, Accept Invoice and withdraw payment", function () {
+  //   it("Should withdraw payment of a one to one single eth payment invoice", async function () {
+  //     const [_, alice] = await ethers.getSigners();
+  //     const { sisan, owner } = await deploySisanFixture();
 
-      const amount10 = 1; 
-      const recurrent =  false; 
-      const numberOfRecurrentPayment = 1n;
-      const recurrentPaymentInterval = 0n;
-      const validPaymentToken = "0x0000000000000000000000000000000000000000";
-      const payers = [alice]
-      const criticalPeriod = 7152n * 7n;
+  //     const amount10 = 1; 
+  //     const recurrent =  false; 
+  //     const numberOfRecurrentPayment = 1n;
+  //     const recurrentPaymentInterval = 0n;
+  //     const validPaymentToken = "0x0000000000000000000000000000000000000000";
+  //     const payers = [alice]
+  //     const criticalPeriod = 7152n * 7n;
 
-      const currentInvoiceIdx = await sisan.currentInvoiceIdx();
+  //     const currentInvoiceIdx = await sisan.currentInvoiceIdx();
 
-      await sisan.connect(owner).createInvoice(
-        amount10,
-        recurrent,
-        numberOfRecurrentPayment,
-        recurrentPaymentInterval,
-        criticalPeriod,
-        validPaymentToken,
-        payers
-      )
+  //     await sisan.connect(owner).createInvoice(
+  //       amount10,
+  //       recurrent,
+  //       numberOfRecurrentPayment,
+  //       recurrentPaymentInterval,
+  //       criticalPeriod,
+  //       validPaymentToken,
+  //       payers
+  //     )
 
-      await sisan.connect(alice).acceptInvoice(currentInvoiceIdx, false, {value: 1n});
+  //     await sisan.connect(alice).acceptInvoice(currentInvoiceIdx, false, {value: 1n});c
 
-      expect(await sisan.connect(owner).withdrawPayment(currentInvoiceIdx, alice)).to
-        .emit(sisan, "InvoiceCompleted").withArgs(currentInvoiceIdx);
-    });
+  //     expect(await sisan.connect(owner).withdrawPayment(currentInvoiceIdx, alice)).to
+  //       .emit(sisan, "InvoiceCompleted").withArgs(currentInvoiceIdx);
+  //   });
 
-    it("Should withdraw a one to one single erc20 payment invoice", async function () {
-      const [_, alice] = await ethers.getSigners();
-      const {tokenContractAddress, token} = await deployERC20Fixture();
-      const { sisan, owner, sisanContractAddress } = await deploySisanFixture();
+  //   it("Should withdraw a one to one single erc20 payment invoice", async function () {
+  //     const [_, alice] = await ethers.getSigners();
+  //     const {tokenContractAddress, token} = await deployERC20Fixture();
+  //     const { sisan, owner, sisanContractAddress } = await deploySisanFixture();
 
-      const amount1 = 1n; 
-      const recurrent =  false; 
-      const numberOfRecurrentPayment = 1n;
-      const recurrentPaymentInterval = 0n;
-      const validPaymentToken = tokenContractAddress;
-      const payers = [alice]
-      const criticalPeriod = 7152n * 7n;
+  //     const amount1 = 1n; 
+  //     const recurrent =  false; 
+  //     const numberOfRecurrentPayment = 1n;
+  //     const recurrentPaymentInterval = 0n;
+  //     const validPaymentToken = tokenContractAddress;
+  //     const payers = [alice]
+  //     const criticalPeriod = 7152n * 7n;
 
-      const currentInvoiceIdx = await sisan.currentInvoiceIdx();
+  //     const currentInvoiceIdx = await sisan.currentInvoiceIdx();
 
-      expect(await sisan.connect(owner).createInvoice(
-        amount1,
-        recurrent,
-        numberOfRecurrentPayment,
-        recurrentPaymentInterval,
-        criticalPeriod,
-        validPaymentToken,
-        payers
-      )).to.emit(
-        sisan, "InvoiceCreated").withArgs(currentInvoiceIdx, owner, amount1, validPaymentToken
-      );
+  //     expect(await sisan.connect(owner).createInvoice(
+  //       amount1,
+  //       recurrent,
+  //       numberOfRecurrentPayment,
+  //       recurrentPaymentInterval,
+  //       criticalPeriod,
+  //       validPaymentToken,
+  //       payers
+  //     )).to.emit(
+  //       sisan, "InvoiceCreated").withArgs(currentInvoiceIdx, owner, amount1, validPaymentToken
+  //     );
 
-      await token.connect(owner).mint(alice, 10);
-      await token.connect(alice).approve(sisanContractAddress, amount1)
-      expect(
-        await sisan.connect(alice).acceptInvoice(
-          currentInvoiceIdx, 
-          false, 
-          {value: 1n}
-        )
-      ).to.emit(sisan, "InvoiceAccepted").withArgs(currentInvoiceIdx, alice, amount1, validPaymentToken)
+  //     await token.connect(owner).mint(alice, 10);
+  //     await token.connect(alice).approve(sisanContractAddress, amount1)
+  //     expect(
+  //       await sisan.connect(alice).acceptInvoice(
+  //         currentInvoiceIdx, 
+  //         false, 
+  //         {value: 1n}
+  //       )
+  //     ).to.emit(sisan, "InvoiceAccepted").withArgs(currentInvoiceIdx, alice, amount1, validPaymentToken)
 
-      expect(await sisan.connect(owner).withdrawPayment(currentInvoiceIdx, alice)).to
-        .emit(sisan, "PaymentWithdrawn").withArgs(currentInvoiceIdx);
+  //     expect(await sisan.connect(owner).withdrawPayment(currentInvoiceIdx, alice)).to
+  //       .emit(sisan, "PaymentWithdrawn").withArgs(currentInvoiceIdx);
 
-      expect(amount1).to.equal(await token.balanceOf(owner));
-    });
-  })
+  //     expect(amount1).to.equal(await token.balanceOf(owner));
+  //   });
+  // })
 
   describe("View methods", function () {
     it("try out view methods", async function () {

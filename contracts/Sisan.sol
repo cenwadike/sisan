@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 pragma solidity ^0.8.24;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@fhenixprotocol/contracts/FHE.sol";
 
-contract Sisan is Ownable, ReentrancyGuard {
+contract Sisan is ReentrancyGuard {
     uint128 public currentInvoiceIdx;
 
     // default critical period is 7 days.
@@ -44,13 +43,13 @@ contract Sisan is Ownable, ReentrancyGuard {
     // maps creator address and invoice Idx to an invoice
     mapping (address => mapping (uint128 => Invoice) ) InvoicesByCreatorAddressAndInvoiceIdx;
 
-    // maps creator address and invoice Idx to an invoice
+    // maps payer address and invoice Idx to an invoice
     mapping (address => mapping (uint128 => Invoice) ) InvoicesByPayerAddressAndInvoiceIdx;
 
     // maps invoice Idx to an invoice
     mapping (uint128 => Invoice) InvoicesByIdx;
 
-    event Initialized(address owner);
+    event Initialized();
     event InvoiceCreated(uint128 invoiceIdx, address creator, uint128 amount, address validPaymentToken);
     event InvoiceAccepted(uint128 invoiceIdx, address payer, uint128 amount, address validPaymentToken);
     event PaymentCanceled(uint128 invoiceIdx, address creator, address payer);
@@ -58,11 +57,11 @@ contract Sisan is Ownable, ReentrancyGuard {
     event InvoiceCompleted(uint128 invoiceIdx);
     event EthRecieved(uint256 amount);
 
-    constructor(address initialOwner) Ownable(initialOwner) {
+    constructor() {
         currentInvoiceIdx = 0;
         defaultCriticalPeriod = DAILY_AVERAGE_BLOCK * 7;
 
-        emit Initialized(owner());
+        emit Initialized();
     }
 
     receive() external payable{
@@ -259,9 +258,9 @@ contract Sisan is Ownable, ReentrancyGuard {
             "Sisan::withdrawPayment::Only valid creator can withdraw payment"
         );
 
-        // require(block.number > invoice.criticalPeriod, 
-        //     "Sisan::withdrawPayment::Can only withdraw after critical period"
-        // );
+        require(block.number > invoice.criticalPeriod, 
+            "Sisan::withdrawPayment::Can only withdraw after critical period"
+        );
 
         require(invoice.status == InvoiceStatus.Accepted, 
             "Sisan::withdrawPayment::Invoice not accepted"
