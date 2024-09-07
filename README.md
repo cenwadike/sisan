@@ -1,5 +1,5 @@
 # Sisan(/see-sÖn/) 
-Privacy-preserving decentralized payroll solution.
+Privacy-preserving decentralized payroll solution for enterprise and freelancers.
 
 ## Requirement
 

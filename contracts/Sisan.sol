@@ -228,46 +228,88 @@ contract Sisan is ReentrancyGuard {
         }
         InvoicesByIdx[invoiceIdx] = invoice; 
 
+        // withdraw outstanding payment
+        withdrawPayment(invoiceIdx, msg.sender);
+
         // update balance 
-        balances[invoice.creator][msg.sender][invoice.invoiceIdx] = FHE.sub(
-                balances[invoice.creator][msg.sender][invoice.invoiceIdx], 
-                FHE.asEuint128(invoice.amount * uint128(invoice.numberOfRecurrentPayment))
-        );
+        balances[invoice.creator][msg.sender][invoice.invoiceIdx] = FHE.asEuint128(0);
 
         if(block.number > invoice.criticalPeriod) {
             // transfer 50% of payment to payer and 50% to payee
 
-            // check if valid token is eth
-            // if true, transfer 50% to payer and 50% to payee
-            if(invoice.validPaymentToken == ETH_TOKEN_PLACEHOLDER) {
-                payable(msg.sender).transfer(invoice.amount/2);
-                payable(invoice.creator).transfer(invoice.amount/2);
+            // if payment is recurrent
+            // transfer amount * number of payment not withdrawn - (amount/2)
+            if (invoice.numberOfRecurrentPayment > 0) {
+                uint128 numberOfRecurrentPaymentLeft = uint128(invoice.numberOfRecurrentPayment);
+                uint128 _balanceLeft = (numberOfRecurrentPaymentLeft * invoice.amount) - (invoice.amount/2);
+                
+                // check if valid token is eth
+                // if true, transfer 50% of amout to payee and the rest to payer
+                if(invoice.validPaymentToken == ETH_TOKEN_PLACEHOLDER) {
+                    payable(msg.sender).transfer(_balanceLeft);
+                    payable(invoice.creator).transfer(invoice.amount/2);
+                }
+
+                // check if valid token is erc29 token
+                // if true, transfer 50% of amout to payee and the rest to payer
+                if(invoice.validPaymentToken != ETH_TOKEN_PLACEHOLDER) {
+                    IERC20 token = IERC20(invoice.validPaymentToken);
+
+                    token.transfer(msg.sender, _balanceLeft);
+                    token.transfer(invoice.creator, invoice.amount/2);
+                }     
+            }else {
+                // check if valid token is eth
+                // if true, transfer 50% of amout to payee and the rest to payer
+                if(invoice.validPaymentToken == ETH_TOKEN_PLACEHOLDER) {
+                    payable(msg.sender).transfer(invoice.amount/2);
+                    payable(invoice.creator).transfer(invoice.amount/2);
+                }
+
+                // check if valid token is erc29 token
+                // if true, transfer 50% of amout to payee and the rest to payer
+                if(invoice.validPaymentToken != ETH_TOKEN_PLACEHOLDER) {
+                    IERC20 token = IERC20(invoice.validPaymentToken);
+
+                    token.transfer(msg.sender, invoice.amount/2);
+                    token.transfer(invoice.creator, invoice.amount/2);
+                }     
             }
-
-            
-            // check if valid token is erc29 token
-            // if true, transfer 50% to payer and 50% to payee  
-            if(invoice.validPaymentToken != ETH_TOKEN_PLACEHOLDER) {
-                IERC20 token = IERC20(invoice.validPaymentToken);
-
-                token.transfer(msg.sender, invoice.amount/2);
-                token.transfer(invoice.creator, invoice.amount/2);
-            }           
         }else {
             // transfer 100% to payer
 
-            // check if valid token is eth
-            // if true, transfer 100% to payer
-            if(invoice.validPaymentToken == ETH_TOKEN_PLACEHOLDER) {
-                payable(msg.sender).transfer(invoice.amount);
-            }
+            // if payment is recurrent
+            // transfer amount * number of payment not withdrawn 
+            if (invoice.numberOfRecurrentPayment > 0) {
+                uint128 numberOfRecurrentPaymentLeft = uint128(invoice.numberOfRecurrentPayment);
+                uint128 _balanceLeft = (numberOfRecurrentPaymentLeft * invoice.amount);
 
-            // check if valid token is eth
-            // if true, transfer 100% to payer
-            if(invoice.validPaymentToken != ETH_TOKEN_PLACEHOLDER) {
-                IERC20 token = IERC20(invoice.validPaymentToken);
-                token.transfer(msg.sender, invoice.amount);
-            }
+                // check if valid token is eth
+                // if true, transfer 100% to payer
+                if(invoice.validPaymentToken == ETH_TOKEN_PLACEHOLDER) {
+                    payable(msg.sender).transfer(_balanceLeft);
+                }
+
+                // check if valid token is eth
+                // if true, transfer 100% to payer
+                if(invoice.validPaymentToken != ETH_TOKEN_PLACEHOLDER) {
+                    IERC20 token = IERC20(invoice.validPaymentToken);
+                    token.transfer(msg.sender, _balanceLeft);
+                }
+            }else {
+                // check if valid token is eth
+                // if true, transfer 100% to payer
+                if(invoice.validPaymentToken == ETH_TOKEN_PLACEHOLDER) {
+                    payable(msg.sender).transfer(invoice.amount);
+                }
+
+                // check if valid token is eth
+                // if true, transfer 100% to payer
+                if(invoice.validPaymentToken != ETH_TOKEN_PLACEHOLDER) {
+                    IERC20 token = IERC20(invoice.validPaymentToken);
+                    token.transfer(msg.sender, invoice.amount);
+                }
+            }            
         } 
 
         // emit event for indexing
@@ -281,7 +323,7 @@ contract Sisan is ReentrancyGuard {
     function withdrawPayment(
         uint128 invoiceIdx,
         address payer
-    ) external nonReentrant {
+    ) public nonReentrant {
         Invoice memory invoice = InvoicesByIdx[invoiceIdx]; 
 
         require(invoice.creator == msg.sender, 
@@ -326,10 +368,10 @@ contract Sisan is ReentrancyGuard {
             invoice.lastWithdrawal = uint128(block.number);
 
             if(invoice.validPaymentToken == ETH_TOKEN_PLACEHOLDER) {
-                payable(msg.sender).transfer(amountToTransfer);
+                payable(payer).transfer(amountToTransfer);
             } else {
                 IERC20 token = IERC20(invoice.validPaymentToken);
-                token.transfer(msg.sender, amountToTransfer);
+                token.transfer(payer, amountToTransfer);
             }
         }
 
