@@ -3,40 +3,40 @@ Privacy-preserving decentralized payroll solution.
 
 ## Requirement
 
-- An employee can provide a payment invoice to an employer
-- An employer can deposit on-chain assets for payment of invoices after a stipulated period of time
-- An employer can cancel payment of an invoice before a critical period of time
-- An employer can not cancel payment of an invoice after a critical period of time
-- An employer must deposit enough assets to cover the payment of an invoice
-- An employer can pay recurrently on an invoice from an employee
-- An employer can cancel recurrent payment
-- An employee can receive payment in `any` on-chain asset with sufficient liquidity
-- An employer can pay in `any` on-chain asset with sufficient liquidity
+- An payee can provide a payment invoice to an payer
+- An payer can deposit on-chain assets for payment of invoices after a stipulated period of time
+- An payer can cancel payment of an invoice before a critical period of time
+- An payer can not cancel payment of an invoice after a critical period of time
+- An payer must deposit enough assets to cover the payment of an invoice
+- An payer can pay recurrently on an invoice from an payee
+- An payer can cancel recurrent payment
+- An payee can receive payment in `any` on-chain asset with sufficient liquidity
+- An payer can pay in `any` on-chain asset with sufficient liquidity
 - All transactions related to payment can be verified
 
 ## Architecture
 
 ### Flow
 
-It describes how the system handles payment settlement between an employee and an employer
+It describes how the system handles payment settlement between an payee and an payer
 
-NB: this same flow can also describe a one-to-many relationship between an employee and employers.
+NB: this same flow can also describe a one-to-many relationship between an payee and payers.
 
-employee → `submit invoice`
+payee → `submit invoice`
 
 system → `record invoice param` + `emit invoice event`
 
-employer → `accepts invoice` + `deposit enough asset` 
+payer → `accepts invoice` + `deposit enough asset` 
 
 system → `emit acceptance event`
 
 system → `open cancel period`
 
-{ ***if:** `open cancel period` is not over, the employer can cancel the payment*
+{ ***if:** `open cancel period` is not over, the payer can cancel the payment*
 
-***else:** if the employer `cancel payment`, 50% of the invoice will be paid to the employee }*
+***else:** if the payer `cancel payment`, 50% of the invoice will be paid to the payee }*
 
-system → ***If:*** `payment period` is reached, `transfer` the correct asset to the employee + `emit event`
+system → ***If:*** `payment period` is reached, `transfer` the correct asset to the payee + `emit event`
 
 ### Data structure
 

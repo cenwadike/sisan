@@ -68,6 +68,16 @@ contract Sisan is ReentrancyGuard {
         emit EthRecieved(msg.value);
     }
 
+    /// @notice Create an invoice
+    /// @dev Append created invoice to Storage maps
+    /// @param _amount amount of token to pay for each invoice payment
+    /// @param _recurrent boolean for recurrent payment
+    /// @param _numberOfRecurrentPayment number of recurrent payment; >=1
+    /// @param _recurrentPaymentInterval payment intervals in block number
+    /// @param _criticalPeriod critical period in block number
+    /// @param _validPaymentToken  valid payment token
+    /// @param _payers authorized payers
+    /// @return invoiceIdx
     function createInvoice(
         uint128 _amount, 
         bool _recurrent, 
@@ -77,15 +87,18 @@ contract Sisan is ReentrancyGuard {
         address _validPaymentToken, 
         address[] memory _payers
     ) external returns (uint128 invoiceIdx) {
+        // verify invoice creator is not payer
         uint256 len = _payers.length;
         for(uint256 i = 0; i < len; i++ ){
             require(_payers[i] != msg.sender, "Sisan::acceptInvoice::Creator can not be payer");
         }
 
+        // minimal critical period for conflict resolution must be > 7 days
         require(_criticalPeriod >= defaultCriticalPeriod, 
             "Sisan::acceptInvoice::Critical period must be at least 7 days"
         );
 
+        // construct incoice from parameters
         Invoice memory invoice = Invoice({
             invoiceIdx: currentInvoiceIdx,
             amount: _amount,
@@ -100,15 +113,22 @@ contract Sisan is ReentrancyGuard {
             status: InvoiceStatus.Created
         });
 
+        // update storage
         InvoicesByCreatorAddressAndInvoiceIdx[invoice.creator][invoice.invoiceIdx] = invoice;
         InvoicesByIdx[invoice.invoiceIdx] = invoice;
         currentInvoiceIdx++;
 
+        // emit event for indexing
         emit InvoiceCreated(invoiceIdx, msg.sender, _amount, _validPaymentToken);
 
+        // return invoice index
         return invoice.invoiceIdx;
     }
 
+    /// @notice Accepts an invoice
+    /// @dev Receive payment to cover for invoice payment.
+    /// @param invoiceIdx invoice index.
+    /// @param recurrent boolean for recurrent invoice payment. Must match invoice. 
     function acceptInvoice(
         uint128 invoiceIdx,
         bool recurrent
@@ -122,7 +142,7 @@ contract Sisan is ReentrancyGuard {
         // ensure caller is a valid payer
         uint256 len = invoice.payers.length;
         bool isValidPayer = false;
-
+        
         for(uint256 i = 0; i < len; i++){
             if(invoice.payers[i] == msg.sender) {
                 isValidPayer = true;
@@ -133,8 +153,12 @@ contract Sisan is ReentrancyGuard {
 
         // update invoice status
         invoice.status = InvoiceStatus.Accepted;
-        InvoicesByIdx[invoiceIdx] = invoice;
+
+        // add invoice to payer map
         InvoicesByPayerAddressAndInvoiceIdx[msg.sender][invoiceIdx] = invoice;
+
+        // update storage
+        InvoicesByIdx[invoiceIdx] = invoice;
 
         // update balance
         uint128 _tempProduct = uint128(invoice.amount) * uint128(invoice.numberOfRecurrentPayment);
@@ -169,6 +193,9 @@ contract Sisan is ReentrancyGuard {
         emit InvoiceAccepted(invoiceIdx, msg.sender, invoice.amount, invoice.validPaymentToken);
     }
 
+    /// @notice Cancel payment on an invoice
+    /// @dev transfer funds to payer and payee based on critical period
+    /// @param invoiceIdx invoice index
     function cancelPayment(
         uint128 invoiceIdx
     ) payable external nonReentrant {
@@ -243,11 +270,14 @@ contract Sisan is ReentrancyGuard {
             }
         } 
 
-
-        // emit event
+        // emit event for indexing
         emit PaymentCanceled(invoice.invoiceIdx, invoice.creator, msg.sender);
     }
 
+    /// @notice Withdraw payment on an invoice
+    /// @dev Withdraws all payment since last withdraw
+    /// @param invoiceIdx invoice index
+    /// @param payer payer of the invoice
     function withdrawPayment(
         uint128 invoiceIdx,
         address payer
@@ -279,6 +309,7 @@ contract Sisan is ReentrancyGuard {
             );
         }
 
+        // update payment remaining
         invoice.numberOfRecurrentPayment--;
 
         // if payment is recurrent, check how many payment is left to be withdrawn
@@ -288,8 +319,9 @@ contract Sisan is ReentrancyGuard {
             uint128 missedPaymentWithdrawal = lasWithdrawalPeriod/invoice.recurrentPaymentInterval;
 
             uint128 amountToTransfer = missedPaymentWithdrawal * invoice.amount;
-            euint128 oldBalance = balances[invoice.creator][payer][invoice.invoiceIdx];
 
+            // update balance
+            euint128 oldBalance = balances[invoice.creator][payer][invoice.invoiceIdx];
             balances[invoice.creator][payer][invoice.invoiceIdx] = FHE.sub(oldBalance, FHE.asEuint128(amountToTransfer));
             invoice.lastWithdrawal = uint128(block.number);
 
@@ -300,9 +332,14 @@ contract Sisan is ReentrancyGuard {
                 token.transfer(msg.sender, amountToTransfer);
             }
         }
+
+        // if payment is not recurrent, transfer single payment 
         if(invoice.numberOfRecurrentPayment <= 0) {
             euint128 oldBalance = balances[invoice.creator][payer][invoice.invoiceIdx];
+
+            // update balance
             balances[invoice.creator][payer][invoice.invoiceIdx] = FHE.sub(oldBalance, FHE.asEuint128(invoice.amount));
+            invoice.lastWithdrawal = uint128(block.number);
 
             if(invoice.validPaymentToken == ETH_TOKEN_PLACEHOLDER) {
                 payable(msg.sender).transfer(invoice.amount);
