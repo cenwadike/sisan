@@ -149,7 +149,7 @@ contract Sisan is ReentrancyGuard {
             }
         } 
 
-        require(isValidPayer, "Sisan::cancelPayment::Only valid payer can accept payment");
+        require(isValidPayer, "Sisan::acceptInvoice::Only valid payer can accept payment");
 
         // update invoice status
         invoice.status = InvoiceStatus.Accepted;
@@ -228,8 +228,8 @@ contract Sisan is ReentrancyGuard {
         }
         InvoicesByIdx[invoiceIdx] = invoice; 
 
-        // withdraw outstanding payment
-        withdrawPayment(invoiceIdx, msg.sender);
+        // // withdraw outstanding payment
+        withdrawOutstandingPayment(invoiceIdx, invoice.creator, msg.sender);
 
         // update balance 
         balances[invoice.creator][msg.sender][invoice.invoiceIdx] = FHE.asEuint128(0);
@@ -309,8 +309,8 @@ contract Sisan is ReentrancyGuard {
                     IERC20 token = IERC20(invoice.validPaymentToken);
                     token.transfer(msg.sender, invoice.amount);
                 }
-            }            
-        } 
+            }
+        }
 
         // emit event for indexing
         emit PaymentCanceled(invoice.invoiceIdx, invoice.creator, msg.sender);
@@ -351,12 +351,10 @@ contract Sisan is ReentrancyGuard {
             );
         }
 
-        // update payment remaining
-        invoice.numberOfRecurrentPayment--;
 
         // if payment is recurrent, check how many payment is left to be withdrawn
         // transfer amount * number of payment not withdrawn
-        if (invoice.numberOfRecurrentPayment > 0) {
+        if (invoice.numberOfRecurrentPayment > 1) {
             uint128 lasWithdrawalPeriod = uint128(block.number) - invoice.lastWithdrawal;
             uint128 missedPaymentWithdrawal = lasWithdrawalPeriod/invoice.recurrentPaymentInterval;
 
@@ -367,21 +365,28 @@ contract Sisan is ReentrancyGuard {
             balances[invoice.creator][payer][invoice.invoiceIdx] = FHE.sub(oldBalance, FHE.asEuint128(amountToTransfer));
             invoice.lastWithdrawal = uint128(block.number);
 
+
+            // update payment remaining
+            invoice.numberOfRecurrentPayment = invoice.numberOfRecurrentPayment - int128(missedPaymentWithdrawal);
+
             if(invoice.validPaymentToken == ETH_TOKEN_PLACEHOLDER) {
-                payable(payer).transfer(amountToTransfer);
+                payable(msg.sender).transfer(amountToTransfer);
             } else {
                 IERC20 token = IERC20(invoice.validPaymentToken);
-                token.transfer(payer, amountToTransfer);
+                token.transfer(msg.sender, amountToTransfer);
             }
         }
 
         // if payment is not recurrent, transfer single payment 
-        if(invoice.numberOfRecurrentPayment <= 0) {
+        if(invoice.numberOfRecurrentPayment <= 1) {
             euint128 oldBalance = balances[invoice.creator][payer][invoice.invoiceIdx];
 
             // update balance
             balances[invoice.creator][payer][invoice.invoiceIdx] = FHE.sub(oldBalance, FHE.asEuint128(invoice.amount));
             invoice.lastWithdrawal = uint128(block.number);
+
+            // update payment remaining
+            invoice.numberOfRecurrentPayment = invoice.numberOfRecurrentPayment - 1;
 
             if(invoice.validPaymentToken == ETH_TOKEN_PLACEHOLDER) {
                 payable(msg.sender).transfer(invoice.amount);
@@ -423,5 +428,38 @@ contract Sisan is ReentrancyGuard {
         uint128 invoiceIdx
     ) view external returns(Invoice memory invoice) {
         return InvoicesByPayerAddressAndInvoiceIdx[payer][invoiceIdx];
+    }
+
+    function withdrawOutstandingPayment(
+        uint128 invoiceIdx, 
+        address invoiceCreator, 
+        address invoicePayer
+    ) internal {
+        Invoice memory invoice = InvoicesByIdx[invoiceIdx]; 
+        uint128 missedPaymentWithdrawal;
+
+        if (invoice.recurrentPaymentInterval > 0) {
+            uint128 lasWithdrawalPeriod = uint128(block.number) - invoice.lastWithdrawal;
+            missedPaymentWithdrawal = lasWithdrawalPeriod/invoice.recurrentPaymentInterval;
+        }else {
+            missedPaymentWithdrawal = 1;
+        }
+        
+        uint128 amountToTransfer = missedPaymentWithdrawal * invoice.amount;
+
+        // update balance
+        euint128 oldBalance = balances[invoiceCreator][invoicePayer][invoiceIdx];
+        balances[invoiceCreator][invoicePayer][invoice.invoiceIdx] = FHE.sub(oldBalance, FHE.asEuint128(amountToTransfer));
+        invoice.lastWithdrawal = uint128(block.number);
+
+        // update payment remaining
+        invoice.numberOfRecurrentPayment = invoice.numberOfRecurrentPayment - int128(missedPaymentWithdrawal);
+
+        if(invoice.validPaymentToken == ETH_TOKEN_PLACEHOLDER) {
+            payable(msg.sender).transfer(amountToTransfer);
+        } else {
+            IERC20 token = IERC20(invoice.validPaymentToken);
+            token.transfer(msg.sender, amountToTransfer);
+        }
     }
 }

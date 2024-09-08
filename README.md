@@ -4,9 +4,9 @@ Privacy-preserving decentralized payroll solution for enterprise and freelancers
 ## Requirement
 
 - An payee can provide a payment invoice to an payer
-- An payer can deposit on-chain assets for payment of invoices after a stipulated period of time
-- An payer can cancel payment of an invoice before a critical period of time
-- An payer can not cancel payment of an invoice after a critical period of time
+- An payer can deposit on-chain assets for payment of invoices after a stipulated period
+- An payer can cancel payment of an invoice before a critical period
+- An payer can not cancel payment of an invoice after a critical period
 - An payer must deposit enough assets to cover the payment of an invoice
 - An payer can pay recurrently on an invoice from an payee
 - An payer can cancel recurrent payment

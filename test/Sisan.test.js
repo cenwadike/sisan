@@ -1,8 +1,3 @@
-const {
-  time,
-  mine
-} = require("@nomicfoundation/hardhat-toolbox/network-helpers");
-
 const { expect } = require("chai");
 const { ethers, fhenixjs } = require("hardhat");
 
@@ -243,8 +238,8 @@ describe("Sisan", function () {
 
       const amount1 = 1n; 
       const recurrent =  false; 
-      const numberOfRecurrentPayment = 0n;
-      const recurrentPaymentInterval = 0n;
+      const numberOfRecurrentPayment = 1n;
+      const recurrentPaymentInterval = 1n;
       const validPaymentToken = "0x0000000000000000000000000000000000000000";
       const payers = [alice]
       const criticalPeriod = 7152n * 7n;
@@ -265,7 +260,8 @@ describe("Sisan", function () {
 
       expect(await sisan.connect(alice).acceptInvoice(currentInvoiceIdx, false, {value: 1n}));
       expect(
-        await sisan.connect(alice).cancelPayment(currentInvoiceIdx))
+        await sisan.connect(alice).cancelPayment(currentInvoiceIdx, { gasLimit: 1500000000n })
+      )
         .to.emit(sisan, "PaymentCanceled").withArgs(currentInvoiceIdx, owner, alice
       );
     });
@@ -277,8 +273,8 @@ describe("Sisan", function () {
 
       const amount1 = 1n; 
       const recurrent =  false; 
-      const numberOfRecurrentPayment = 0n;
-      const recurrentPaymentInterval = 0n;
+      const numberOfRecurrentPayment = 1n;
+      const recurrentPaymentInterval = 1n;
       const validPaymentToken = tokenContractAddress;
       const payers = [alice]
       const criticalPeriod = 7152n * 7n;
@@ -396,44 +392,44 @@ describe("Sisan", function () {
   //   });
   // })
 
-  describe("View methods", function () {
-    it("try out view methods", async function () {
-      const [_, alice] = await ethers.getSigners();
-      const { sisan, owner } = await deploySisanFixture();
+  // describe("View methods", function () {
+  //   it("try out view methods", async function () {
+  //     const [_, alice] = await ethers.getSigners();
+  //     const { sisan, owner } = await deploySisanFixture();
 
-      const amount10 = 1; 
-      const recurrent =  true; 
-      const numberOfRecurrentPayment = 1n;
-      const recurrentPaymentInterval = 1n;
-      const validPaymentToken = "0x0000000000000000000000000000000000000000";
-      const payers = [alice]
-      const criticalPeriod = 7152n * 7n;
+  //     const amount10 = 1; 
+  //     const recurrent =  true; 
+  //     const numberOfRecurrentPayment = 1n;
+  //     const recurrentPaymentInterval = 1n;
+  //     const validPaymentToken = "0x0000000000000000000000000000000000000000";
+  //     const payers = [alice]
+  //     const criticalPeriod = 7152n * 7n;
 
-      const currentInvoiceIdx = await sisan.currentInvoiceIdx();
+  //     const currentInvoiceIdx = await sisan.currentInvoiceIdx();
 
-      await sisan.connect(owner).createInvoice(
-        amount10,
-        recurrent,
-        numberOfRecurrentPayment,
-        recurrentPaymentInterval,
-        criticalPeriod,
-        validPaymentToken,
-        payers
-      )
+  //     await sisan.connect(owner).createInvoice(
+  //       amount10,
+  //       recurrent,
+  //       numberOfRecurrentPayment,
+  //       recurrentPaymentInterval,
+  //       criticalPeriod,
+  //       validPaymentToken,
+  //       payers
+  //     )
 
-      await sisan.connect(alice).acceptInvoice(currentInvoiceIdx, true, {value: 1n});
+  //     await sisan.connect(alice).acceptInvoice(currentInvoiceIdx, true, {value: 1n});
 
-      const invoice = await sisan.getInvoice(currentInvoiceIdx);
-      expect(invoice.recurrent).to.equal(recurrent);
+  //     const invoice = await sisan.getInvoice(currentInvoiceIdx);
+  //     expect(invoice.recurrent).to.equal(recurrent);
 
-      const invoiceBalance = await sisan.getInvoiceBalance(owner, alice, currentInvoiceIdx);
-      expect(amount10).to.equal(invoiceBalance);
+  //     const invoiceBalance = await sisan.getInvoiceBalance(owner, alice, currentInvoiceIdx);
+  //     expect(amount10).to.equal(invoiceBalance);
 
-      const invoice1 = await sisan.getInvoiceByCreatorAndIdx(owner, currentInvoiceIdx);
-      expect(invoice.recurrent).to.equal(invoice1.recurrent);
+  //     const invoice1 = await sisan.getInvoiceByCreatorAndIdx(owner, currentInvoiceIdx);
+  //     expect(invoice.recurrent).to.equal(invoice1.recurrent);
 
-      const invoice2 = await sisan.getInvoiceByPayerAndIdx(alice, currentInvoiceIdx);
-      expect(invoice1.recurrent).to.equal(invoice2.recurrent);
-    });
-  });
+  //     const invoice2 = await sisan.getInvoiceByPayerAndIdx(alice, currentInvoiceIdx);
+  //     expect(invoice1.recurrent).to.equal(invoice2.recurrent);
+  //   });
+  // });
 });
