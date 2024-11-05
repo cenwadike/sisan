@@ -5,7 +5,7 @@ import Web3Modal from "web3modal";
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from "react";
 
-import Sisan from "../../../on-chain/artifacts/contracts/Sisan.sol/Sisan.json";
+import Sisan from "../../../on-chain/targets/Sisan.json";
 import truncateEthAddress from "truncate-eth-address";
 const sisanAddress = "0x203cdb9736B57B080D68cb88739C155bC95CbE4f";
 
