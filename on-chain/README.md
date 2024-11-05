@@ -156,7 +156,7 @@ PRIVATE_KEY=<fhenix-private-key>
 ### Build
 
 ```bash
-npm i
+yarn
 ```
 
 ```bash
@@ -177,7 +177,7 @@ npx hardhat test --network localfhenix
 
 ##### Withdrawal test
 
-Because localfhenix does not support chain fast forwarding, comment lines `261` to `263` of **Sisan.sol**and uncomment withdrawal tests.
+Because localfhenix does not support chain fast forwarding, comment lines `261` to `263` of **Sisan.sol** and uncomment withdrawal tests.
 
 ### Deploy
 
