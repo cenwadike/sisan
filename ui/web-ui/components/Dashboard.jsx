@@ -6,13 +6,15 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect } from "react";
 
 import Sisan from "../../../on-chain/targets/Sisan.json";
+import Token from "../../../on-chain/targets/Token.json";
 import truncateEthAddress from "truncate-eth-address";
 const sisanAddress = "0x203cdb9736B57B080D68cb88739C155bC95CbE4f";
 
 // dashboard allow creating invoices
 // dashboard display all of payee invoices
 export default function DashBoard() {
-  const [userData, setUserData] = useState([]);
+  const [payerData, setPayerData] = useState([]);
+  const [payeeData, setPayeeData] = useState([]);
   const [loading, setLoading] = useState("loading");
   const [showModal, setShowModal] = useState(false);
   const [createInvoiceInput, setCreateInvoiceInput] = useState({
@@ -27,20 +29,21 @@ export default function DashBoard() {
   const router = useRouter();
 
   useEffect(() => {
-    loadData().then(setLoading("loaded"));
+    loadPayerData().then(loadPayeeData()).finally(setLoading("loaded"));
   }, []);
 
-  //////////////////////////////////load invoice from blockchain
-  async function loadData() {
+  //////////////////////////////////load payer invoice from blockchain
+  async function loadPayerData() {
     const web3Modal = new Web3Modal()
     const connection = await web3Modal.connect()
     const provider = new ethers.providers.Web3Provider(connection)    
     const signer = provider.getSigner()
+    const { ethereum } = window;
+    const result = await ethereum.request({ method: "eth_accounts" });
+    const payerAddress = result[0];
 
-    console.log("signer: ", signer);
     const sisanContract = new ethers.Contract(sisanAddress, Sisan.abi, signer);
     const currentInvoiceIdx = await sisanContract.currentInvoiceIdx()
-    console.log("currentInvoiceIdx: ", parseInt(currentInvoiceIdx));
 
     let data = [];
     if (currentInvoiceIdx !== 0) {
@@ -48,66 +51,154 @@ export default function DashBoard() {
         try {
           const temp = await sisanContract.getInvoice(i);
           data.push(temp)
+          console.log("temp: ", temp)
         } catch (error) {
           console.error("Failed to load data with error: ", error)
         }
       }
 
-      console.log("batch data: ", data)
-      const uData = await Promise.all(
-        data.map(async (i) => {
-          let invoiceIdx = parseInt(i.invoiceIdx);
-          let amount = ethers.utils.formatUnits(i.amount.toString(), "ether");
-          let criticalPeriod = parseInt(i.criticalPeriod);
-          let creator = i.creator;
-          let payer = i.payers[0];
-          let recurrent = i.recurrent === true ? "True" : "False";
-          let numberOfRecurrentPayment = parseInt(i.numberOfRecurrentPayment);
-          let recurrentPaymentInterval = parseInt(i.recurrentPaymentInterval);
-          let validPaymentToken = i.validPaymentToken;
-          let lastWithdrawal = i.lastWithdrawal;
-          
-          let status;
-          switch (i.itemState) {
-            case 0:
-              status = "Unpaid";
-              break;
-            case 1:
-              status = "Accepted";
-              break;
-            case 2:
-              status = "Cancelled";
-              break;
-            case 3:
-              status = "Paid";
-              break;
-            default:
-              status = "NaN";
-          }
+      let uData = [];
+      const len = data.length;
 
-          let tempUData = {
-            invoiceIdx,
-            amount,
-            criticalPeriod,
-            creator,
-            payer,
-            recurrent,
-            numberOfRecurrentPayment,
-            recurrentPaymentInterval,
-            validPaymentToken,
-            lastWithdrawal,
-            status,
-          }
+      for (let i = 0; i < len; i++) {
+        let item = data[i];
+        let invoiceIdx = parseInt(item.invoiceIdx);
+        let amount = ethers.utils.formatUnits(item.amount.toString(), "ether");
+        let criticalPeriod = parseInt(item.criticalPeriod);
+        let creator = item.creator;
+        let payer = item.payers[0];
+        let recurrent = item.recurrent === true ? "True" : "False";
+        let numberOfRecurrentPayment = parseInt(item.numberOfRecurrentPayment);
+        let recurrentPaymentInterval = parseInt(item.recurrentPaymentInterval);
+        let validPaymentToken = item.validPaymentToken;
+        let lastWithdrawal = item.lastWithdrawal;
+        
+        let status;
+        switch (i.itemState) {
+          case 0:
+            status = "Unpaid";
+            break;
+          case 1:
+            status = "Accepted";
+            break;
+          case 2:
+            status = "Cancelled";
+            break;
+          case 3:
+            status = "Paid";
+            break;
+          default:
+            status = "NaN";
+        }
 
-          return tempUData;
-        })
-      )
+        let tempUData = {
+          invoiceIdx,
+          amount,
+          criticalPeriod,
+          creator,
+          payer,
+          recurrent,
+          numberOfRecurrentPayment,
+          recurrentPaymentInterval,
+          validPaymentToken,
+          lastWithdrawal,
+          status,
+        }
 
-      console.log("u data: ", uData[0]);
+        console.log("payer: ", payerAddress);
+        if (
+          JSON.stringify(tempUData.payer).toLowerCase() === 
+          JSON.stringify(payerAddress).toLocaleLowerCase()
+        ) {
+          uData.push(tempUData)
+        }
+      }
+      setPayerData(uData);
+    }
+  }
 
-      setUserData(uData);
-      // userData.push(uData);
-      console.log("data: ", userData);
+  //////////////////////////////////load payee invoice from blockchain
+  async function loadPayeeData() {
+    const web3Modal = new Web3Modal()
+    const connection = await web3Modal.connect()
+    const provider = new ethers.providers.Web3Provider(connection)    
+    const signer = provider.getSigner()
+    const { ethereum } = window;
+    const result = await ethereum.request({ method: "eth_accounts" });
+    const payeeAddress = result[0];
+
+    const sisanContract = new ethers.Contract(sisanAddress, Sisan.abi, signer);
+    const currentInvoiceIdx = await sisanContract.currentInvoiceIdx()
+
+    let data = [];
+    if (currentInvoiceIdx !== 0) {
+      for (let i = 0; i < currentInvoiceIdx; i++) {
+        try {
+          const temp = await sisanContract.getInvoice(i);
+          data.push(temp)
+          console.log("temp: ", temp)
+        } catch (error) {
+          console.error("Failed to load data with error: ", error)
+        }
+      }
+
+      let uData = [];
+      const len = data.length;
+
+      for (let i = 0; i < len; i++) {
+        let item = data[i];
+        let invoiceIdx = parseInt(item.invoiceIdx);
+        let amount = ethers.utils.formatUnits(item.amount.toString(), "ether");
+        let criticalPeriod = parseInt(item.criticalPeriod);
+        let creator = item.creator;
+        let payer = item.payers[0];
+        let recurrent = item.recurrent === true ? "True" : "False";
+        let numberOfRecurrentPayment = parseInt(item.numberOfRecurrentPayment);
+        let recurrentPaymentInterval = parseInt(item.recurrentPaymentInterval);
+        let validPaymentToken = item.validPaymentToken;
+        let lastWithdrawal = item.lastWithdrawal;
+        
+        let status;
+        switch (i.itemState) {
+          case 0:
+            status = "Unpaid";
+            break;
+          case 1:
+            status = "Accepted";
+            break;
+          case 2:
+            status = "Cancelled";
+            break;
+          case 3:
+            status = "Paid";
+            break;
+          default:
+            status = "NaN";
+        }
+
+        let tempUData = {
+          invoiceIdx,
+          amount,
+          criticalPeriod,
+          creator,
+          payer,
+          recurrent,
+          numberOfRecurrentPayment,
+          recurrentPaymentInterval,
+          validPaymentToken,
+          lastWithdrawal,
+          status,
+        }
+
+        console.log("payee: ", payeeAddress);
+        if (
+          JSON.stringify(tempUData.creator).toLowerCase() === 
+          JSON.stringify(payeeAddress).toLocaleLowerCase()
+        ) {
+          uData.push(tempUData)
+        }
+      }
+      setPayeeData(uData);
     }
   }
 
@@ -159,37 +250,38 @@ export default function DashBoard() {
     router.push("/");
   }
 
+  //////////////////////////////////accept invoice
+  async function acceptPayment(invoiceIdx) {
+    if( invoiceIdx !== null) {
+      const web3Modal = new Web3Modal()
+      const connection = await web3Modal.connect()
+      const provider = new ethers.providers.Web3Provider(connection)    
+      const signer = provider.getSigner()
+      const sisanContract = new ethers.Contract(sisanAddress, Sisan.abi, signer);
+
+      const invoice = await sisanContract.getInvoice(invoiceIdx);
+      console.log("invoice: ", invoice)
+
+      const tokenContract = new ethers.Contract(invoice.validPaymentToken, Token.abi, signer);
+
+      console.log("token contract created successfully")
+      const amount = invoice.amount.toString();
+      console.log("amount: ", amount)
+      console.log("amount as ether: ", ethers.utils.parseEther(amount));
+
+      await tokenContract.approve(sisanAddress, amount);
+      console.log("approve successfully")
+      await sisanContract.acceptInvoice(
+        invoiceIdx, 
+        false
+      )
+      console.log("accepted successfully")
+    }
+  } 
   //////////////////////////////////display invoices
   if (loading == "loaded") {
     return (
       <div className="bg-white">
-        <div className='pt-12 text-2xl md:text-4xl text-blue-800 font-bold mb-12'>
-          <div className='p-4'>
-            <h2 className='text-2xl font-bold uppercase py-2 md:px-16'>Invoices</h2>
-            <div className='grid justify-items-stretch sm:grid-cols-2 gap-4 pt-4'>
-              {userData.map(data => 
-                <div key={data.invoiceIdx} className='border shadow rounded-xl overflow-hidden'>
-                  <div className='p-4 flex justify-center bg-blue-800 border-t border-solid border-slate-200'>
-                    <p className='text-xl font-small text-white'>Creator - {truncateEthAddress(data.creator)}</p>
-                  </div>
-                  <div className='p-4 flex justify-center bg-blue-800 border-t border-solid border-slate-200'>
-                    <p className='text-xl font-small text-white'>Payer - {truncateEthAddress(data.payer)}</p>
-                  </div>
-                  <div className='p-4 flex justify-center bg-blue-800 border-t border-solid border-slate-200'>
-                    <p className='text-xl font-small text-white'>Invoice ID - {data.invoiceIdx}</p>
-                  </div>
-                  <div className='p-4 flex justify-center bg-blue-800 border-t border-solid border-slate-200'>
-                    <p className='text-xl font-small text-white'>Amount - {data.amount}</p>
-                  </div>
-                  <div className='p-4 flex justify-center bg-blue-800 border-t border-solid border-slate-200'>
-                    <p className='text-xl font-small text-white'>Valid Token - {truncateEthAddress(data.validPaymentToken)}</p>
-                  </div>
-                </div>
-              )}
-              
-            </div>
-          </div>
-        </div>
         {/* createInvoice modal */}
         <div className='flex justify-center p-5'>
           <button
@@ -395,6 +487,65 @@ export default function DashBoard() {
               <div className='opacity-60 fixed inset-0 z-40 bg-blue-900'></div>
             </>
           ) : null}
+        </div>
+        <div className='pt-10 text-2xl md:text-4xl text-blue-800 font-bold mb-12'>
+          <div className='p-4'>
+            <h2 className='text-2xl font-bold uppercase py-2 md:px-16'>Pending Invoices</h2>
+            <div className='grid justify-items-stretch sm:grid-cols-2 gap-4 pt-4'>
+              {payerData.map(data => 
+                <div key={data.invoiceIdx} className='border shadow rounded-xl overflow-hidden'>
+                  <div className='p-4 flex justify-center bg-blue-800 border-t border-solid border-slate-200'>
+                    <p className='text-xl font-small text-white'>Creator - {truncateEthAddress(data.creator)}</p>
+                  </div>
+                  <div className='p-4 flex justify-center bg-blue-800 border-t border-solid border-slate-200'>
+                    <p className='text-xl font-small text-white'>Payer - {truncateEthAddress(data.payer)}</p>
+                  </div>
+                  <div className='p-4 flex justify-center bg-blue-800 border-t border-solid border-slate-200'>
+                    <p className='text-xl font-small text-white'>Invoice ID - {data.invoiceIdx}</p>
+                  </div>
+                  <div className='p-4 flex justify-center bg-blue-800 border-t border-solid border-slate-200'>
+                    <p className='text-xl font-small text-white'>Amount - {data.amount}</p>
+                  </div>
+                  <div className='p-4 flex justify-center bg-blue-800 border-t border-solid border-slate-200'>
+                    <p className='text-xl font-small text-white'>Valid Token - {truncateEthAddress(data.validPaymentToken)}</p>
+                  </div>
+                  <button
+                    className='m-3 md:ml-28 lg:ml-56 flex justify-center text-white font-bold uppercase text-sm px-6 py-3 rounded shadow bg-blue-600 hover:bg-blue-900 hover:shadow-lg hover:px-8 outline-none focus:outline-none mr-1 mb-1 ease-linear transition-all duration-300'
+                    type='button'
+                    onClick={() => acceptPayment(data.invoiceIdx)}>
+                    {data.status !== "Unpaid" ? "Accept Payment" : "Paid"}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className='pt-10 text-2xl md:text-4xl text-blue-800 font-bold pb-10'>
+          <div className='p-4'>
+            <h2 className='text-2xl font-bold uppercase py-2 md:px-16'>My Invoices</h2>
+            <div className='grid justify-items-stretch sm:grid-cols-2 gap-4 pt-4'>
+              {payeeData.map(data => 
+                <div key={data.invoiceIdx} className='border shadow rounded-xl overflow-hidden'>
+                  <div className='p-4 flex justify-center bg-blue-800 border-t border-solid border-slate-200'>
+                    <p className='text-xl font-small text-white'>Creator - {truncateEthAddress(data.creator)}</p>
+                  </div>
+                  <div className='p-4 flex justify-center bg-blue-800 border-t border-solid border-slate-200'>
+                    <p className='text-xl font-small text-white'>Payer - {truncateEthAddress(data.payer)}</p>
+                  </div>
+                  <div className='p-4 flex justify-center bg-blue-800 border-t border-solid border-slate-200'>
+                    <p className='text-xl font-small text-white'>Invoice ID - {data.invoiceIdx}</p>
+                  </div>
+                  <div className='p-4 flex justify-center bg-blue-800 border-t border-solid border-slate-200'>
+                    <p className='text-xl font-small text-white'>Amount - {data.amount}</p>
+                  </div>
+                  <div className='p-4 flex justify-center bg-blue-800 border-t border-solid border-slate-200'>
+                    <p className='text-xl font-small text-white'>Valid Token - {truncateEthAddress(data.validPaymentToken)}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     );
